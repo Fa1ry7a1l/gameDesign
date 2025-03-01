@@ -8,6 +8,10 @@ export class Shape {
         this.color = color;
         this.vertices = [];
         this.cachedVertices = [];
+        this.top = 0
+        this.bottom = 0
+        this.left = 0
+        this.right = 0
         this.hp=3;
     }
 
@@ -29,8 +33,24 @@ export class Shape {
             this.cachedVertices.push({x: this.x, y: this.y});
             this.vertices.forEach(v => this.cachedVertices.push({x: v.x + this.x, y: v.y + this.y}));
         }
-        let a =  this.cachedVertices.slice(1)
-        return a;
+        return this.cachedVertices.slice(1);
+    }
+
+    getTop()
+    {
+        return this.y + this.top;
+    }
+    getBottom()
+    {
+        return this.y + this.bottom;
+    }
+    getLeft()
+    {
+        return this.x + this.left;
+    }
+    getRight()
+    {
+        return this.x + this.right;
     }
 
     draw() {

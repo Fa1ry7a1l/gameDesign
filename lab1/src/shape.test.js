@@ -89,3 +89,32 @@ describe('Shape.checkCollision()', () => {
         expect(shape1.checkCollision(shape2)).toBeFalsy();
     });
 });
+
+describe('Shape.sides', () => {
+    test('getTop() должен возвращать y + top', () => {
+        const shape = new Shape(10, 20, 5, 0, 0, 'red');
+        shape.top = 5; // ожидаем: 20 + 5 = 25
+        expect(shape.getTop()).toBe(25);
+    });
+
+    test('getBottom() должен возвращать y + bottom', () => {
+        const shape = new Shape(10, 20, 5, 0, 0, 'red');
+        shape.bottom = -3; // ожидаем: 20 + (-3) = 17
+        expect(shape.getBottom()).toBe(17);
+    });
+
+    test('getLeft() должен возвращать x + left (так как второй метод getLeft переопределяет первый)', () => {
+        const shape = new Shape(30, 40, 5, 0, 0, 'blue');
+        // Значения left и right могут быть заданы отдельно, но из-за переопределения используется только right.
+        shape.left = 2;
+        shape.right = 7;   // ожидаем: 30 + 7 = 37
+        expect(shape.getLeft()).toBe(32);
+    });
+    test('getRight() должен возвращать x + right (так как второй метод getLeft переопределяет первый)', () => {
+        const shape = new Shape(30, 40, 5, 0, 0, 'blue');
+        // Значения left и right могут быть заданы отдельно, но из-за переопределения используется только right.
+        shape.left = 2;
+        shape.right = 7;   // ожидаем: 30 + 7 = 37
+        expect(shape.getRight()).toBe(37);
+    });
+});
