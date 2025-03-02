@@ -1,47 +1,57 @@
-import Rectangle from "./rectangle";
-import {checkCircleCollision, checkCirclePolygonCollision, checkPolygonCollision} from './collision.js';
+import {checkCirclePolygonCollision, checkPolygonCollision} from './collision.js';
 import {Circle} from "./circle";
 import {Triangle} from "./triangle";
 import {Hexagon} from "./hexagon";
+import QuadTree from "./quad-tree";
+import Rectangle from "./rectangle";
 
 const canvas = document.getElementById("cnvs");
 
 const gameState = {};
+const eachTypeElementCount = 50;
+
+
 
 
 function queueUpdates(numTicks) {
     for (let i = 0; i < numTicks; i++) {
         gameState.lastTick = gameState.lastTick + gameState.tickLength
         checkCollisions(gameState.lastTick)
+        //checkCollisionsQuad(gameState.lastTick)
         update(gameState.lastTick)
         removeLosers()
     }
 }
 
 function removeLosers() {
-    gameState.cicrles = gameState.cicrles.filter(x => x.hp > 0)
+    gameState.circles = gameState.circles.filter(x => x.hp > 0)
     gameState.hexagon = gameState.hexagon.filter(x => x.hp > 0)
     gameState.triangle = gameState.triangle.filter(x => x.hp > 0)
 }
 
+function checkCollisionsQuad(lastTick) {
+    let tree = new QuadTree(new Rectangle(0,0,canvas.width,canvas.height),4);
+    tree.buildTree(gameState)
+    tree.calculateCollision(reactOnCollision)
+}
 
 function checkCollisions(tick) {
-    for (let i = 0; i < gameState.cicrles.length; i++) {
-        for (let j = i + 1; j < gameState.cicrles.length; j++) {
-            if (gameState.cicrles[i].checkCollision(gameState.cicrles[j])) {
-                reactOnCollision(gameState.cicrles[i], gameState.cicrles[j]);
+    for (let i = 0; i < gameState.circles.length; i++) {
+        for (let j = i + 1; j < gameState.circles.length; j++) {
+            if (gameState.circles[i].checkCollision(gameState.circles[j])) {
+                reactOnCollision(gameState.circles[i], gameState.circles[j]);
             }
         }
         for (let j = 0; j < gameState.triangle.length; j++) {
-            if(gameState.cicrles[i].checkCollision(gameState.triangle[j]) && checkCirclePolygonCollision(gameState.cicrles[i], gameState.triangle[j]))
+            if(gameState.circles[i].checkCollision(gameState.triangle[j]) && checkCirclePolygonCollision(gameState.circles[i], gameState.triangle[j]))
             {
-                reactOnCollision(gameState.cicrles[i], gameState.triangle[j]);
+                reactOnCollision(gameState.circles[i], gameState.triangle[j]);
             }
         }
         for (let j = 0; j < gameState.hexagon.length; j++) {
-            if(gameState.cicrles[i].checkCollision(gameState.hexagon[j]) && checkCirclePolygonCollision(gameState.cicrles[i], gameState.hexagon[j]))
+            if(gameState.circles[i].checkCollision(gameState.hexagon[j]) && checkCirclePolygonCollision(gameState.circles[i], gameState.hexagon[j]))
             {
-                reactOnCollision(gameState.cicrles[i], gameState.hexagon[j]);
+                reactOnCollision(gameState.circles[i], gameState.hexagon[j]);
             }
         }
     }
@@ -93,14 +103,14 @@ function draw(tFrame) {
     context.clearRect(0, 0, canvas.width, canvas.height)
     // draw
     context.fillStyle = "rgb(0, 0, 200)"
-    gameState.cicrles.forEach((c) => c.draw(context))
+    gameState.circles.forEach((c) => c.draw(context))
     gameState.triangle.forEach((c) => c.draw(context))
     gameState.hexagon.forEach((c) => c.draw(context))
 
 }
 
 function update(tick) {
-    gameState.cicrles.forEach(c => c.move(canvas));
+    gameState.circles.forEach(c => c.move(canvas));
     gameState.triangle.forEach(c => c.move(canvas));
     gameState.hexagon.forEach(c => c.move(canvas));
 }
@@ -135,23 +145,23 @@ function setup() {
     gameState.lastRender = gameState.lastTick
     gameState.tickLength = 15 //ms
 
-    gameState.cicrles = []
+    gameState.circles = []
     gameState.triangle = []
     gameState.hexagon = []
 
     // gameState.triangle.push(new Triangle(270, 90, 30, 1, -2, getRandomColor()))
     // gameState.hexagon.push(new Hexagon(300, 50, 25, -1, 0, getRandomColor()))
 
-    for (let i = 0; i < 10; i++) {
+    for (let i = 0; i < eachTypeElementCount; i++) {
         let radius = Math.random() * 50 + 10; // Радиус от 10 до 60 пикселей
         let x = Math.random() * (canvas.width - 2 * radius) + radius;
         let y = Math.random() * (canvas.height - 2 * radius) + radius;
         let speedX = Math.random() * 10 - 5;
         let speedY = Math.random() * 10 - 5;
         let color = getRandomColor();
-        gameState.cicrles.push(new Circle(x, y, radius, speedX, speedY, color));
+        gameState.circles.push(new Circle(x, y, radius, speedX, speedY, color));
     }
-    for (let i = 0; i < 10; i++) {
+    for (let i = 0; i < eachTypeElementCount; i++) {
         let radius = Math.random() * 50 + 10; // Радиус от 10 до 60 пикселей
         let x = Math.random() * (canvas.width - 2 * radius) + radius; //формула такая, чтобы спауниться не пересекая границу экрана, иначе фигура залипает в ней
         let y = Math.random() * (canvas.height - 2 * radius) + radius;
@@ -160,7 +170,7 @@ function setup() {
         let color = getRandomColor();
         gameState.triangle.push(new Triangle(x, y, radius, speedX, speedY, color));
     }
-    for (let i = 0; i < 10; i++) {
+    for (let i = 0; i < eachTypeElementCount; i++) {
         let radius = Math.random() * 50 + 10; // Радиус от 10 до 60 пикселей
         let x = Math.random() * (canvas.width - 2 * radius) + radius;
         let y = Math.random() * (canvas.height - 2 * radius) + radius;

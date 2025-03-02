@@ -19,6 +19,10 @@ export class Hexagon extends Shape {
             });
         }
         this.vertices= vertices;
+        this.top = Math.min(vertices.map( e => e.x))
+        this.left = Math.min(vertices.map( e => e.y))
+        this.bottom = Math.max(vertices.map( e => e.x))
+        this.right = Math.max(vertices.map( e => e.y))
     }
 
 
