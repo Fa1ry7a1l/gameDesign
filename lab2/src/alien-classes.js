@@ -113,7 +113,7 @@ export class BottomShooterAlien extends AlienBase {
 export class RapidFireAlien extends AlienBase {
     constructor(...args) {
         super(...args);
-        this.shootDelay = 8000 + Math.random() * 3000;
+        this.shootDelay = ALIEN_SHOOT_MIN + Math.random() * ALIEN_SHOOT_MAX;
     }
 
     shoot(gameState, time) {

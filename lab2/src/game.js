@@ -41,7 +41,7 @@ const gameState = {
 
     killCount: 0,
     nextBonusAt: 0,
-    eventBus: null          // ← здесь будет шина
+    gameStopped: false,
 };
 const inputHandler = new InputHandler();
 
@@ -213,8 +213,9 @@ export function update(time, stopGame) {
     gameState.bunkers = gameState.bunkers.filter(b => !b.isDead);
     gameState.bonuses = gameState.bonuses.filter(b => !b.isDead);
 
-    if(gameState.aliens.length  == 0)
+    if(gameState.aliens.length  == 0 && ! gameState.gameStopped)
     {
+        gameState.gameStopped = true;
         // window.open("https://www.youtube.com/watch?v=ecI1XvAGd5c", '_blank').focus();
         alert(`Ура победа, вы заработали ${gameState.currentScore}`)
     }
