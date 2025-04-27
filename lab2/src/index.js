@@ -34,7 +34,8 @@ function run(tFrame) {
     lastRender = tFrame;
 }
 
-function stopGame() {
+function stopGame(score) {
+    alert(`не в этот раз. Счет ${score}`)
     window.cancelAnimationFrame(stopCycle);
 }
 
@@ -42,7 +43,7 @@ function onPreloadComplete() {
   lastTick = performance.now();
   lastRender = lastTick;
   stopCycle = null;
-  init(canvas);
+  init(canvas,lastRender);
   run();
 }
 

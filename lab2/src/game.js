@@ -2,12 +2,20 @@ import Sprite from './sprite'
 import Cannon from './cannon'
 import Bullet from './bullet'
 import Bunker from "./bunker";
-import { BottomShooterAlien, RapidFireAlien } from './alien-classes';
+import {BottomShooterAlien, RapidFireAlien} from './alien-classes';
 import EventBus from './event‑bus'
-import { SHOOT_COOLDOWN } from './constants';
+import {
+    BONUS_ALIENS_MS,
+    BONUS_PLAYER_MS,
+    BONUS_SPAWN_EVERY,
+    BONUS_TIME_TO_LIVE, DEATH_PRICE, PLAYER_BONUS_BULLET_SPEED, PLAYER_BULLET_SPEED,
+    PLAYER_LIVES,
+    SHOOT_COOLDOWN
+} from './constants';
 import InputHandler from "./input-handler";
 
 import assetPath from '../assets/invaders.png'
+import Bonus from "./bonus";
 
 let assets;
 const sprites = {
@@ -16,13 +24,23 @@ const sprites = {
     bunker: null
 };
 const gameState = {
+    startTime: 0,
+    currentScore: 0,
     bullets: [],
-    aliens:  [],
-    cannon:  null,
+    aliens: [],
+    bonuses: [],
+    cannon: null,
     bunkers: [],
-    canvas:  null,
+    canvas: null,
 
     nextShootAllowed: 0,
+    lives: PLAYER_LIVES,
+    playerBuffUntil: 0,
+    alienBuffUntil: 0,
+    alienSpeedBuffUntil: 0,
+
+    killCount: 0,
+    nextBonusAt: 0,
     eventBus: null          // ← здесь будет шина
 };
 const inputHandler = new InputHandler();
@@ -43,7 +61,8 @@ export function preload(onPreloadComplete) {
     assets.src = assetPath;
 }
 
-export function init(canvas) {
+export function init(canvas, time) {
+    gameState.startTime = time;
     gameState.eventBus = new EventBus();
     const alienRows = [BottomShooterAlien, RapidFireAlien,
         BottomShooterAlien, RapidFireAlien,
@@ -59,9 +78,8 @@ export function init(canvas) {
         }
     });
 
-    for(var i = 0; i < 10;i++)
-    {
-        let alienX = canvas.width/10 * i;
+    for (var i = 0; i < 5; i++) {
+        let alienX = canvas.width / 5 * i;
         let alienY = canvas.height - 150;
         gameState.bunkers.push(
             new Bunker(alienX, alienY, sprites.bunker)
@@ -77,25 +95,41 @@ export function init(canvas) {
 
 export function update(time, stopGame) {
     /* ───── 1. УПРАВЛЕНИЕ ИГРОКА ───── */
-    if (inputHandler.isDown('ArrowLeft'))  gameState.cannon.x -= 4;
+    if (inputHandler.isDown('ArrowLeft')) gameState.cannon.x -= 4;
     if (inputHandler.isDown('ArrowRight')) gameState.cannon.x += 4;
 
     const maxX = gameState.canvas.width - gameState.cannon.w;
-    if (gameState.cannon.x < 0)    gameState.cannon.x = 0;
+    if (gameState.cannon.x < 0) gameState.cannon.x = 0;
     if (gameState.cannon.x > maxX) gameState.cannon.x = maxX;
-
+    const shootCd = (time < gameState.playerBuffUntil) ? SHOOT_COOLDOWN / 2 : SHOOT_COOLDOWN;
     if (inputHandler.isDown('Space') && time >= gameState.nextShootAllowed) {
         const bx = gameState.cannon.x + (gameState.cannon.w >> 1) - 1;
         const by = gameState.cannon.y;
-        gameState.bullets.push(new Bullet(bx, by, -8, 2, 6, '#fff', 'player'));
-        gameState.nextShootAllowed = time + SHOOT_COOLDOWN;
+        if(time < gameState.playerBuffUntil)
+        {
+            gameState.bullets.push(new Bullet(bx, by, PLAYER_BONUS_BULLET_SPEED, 2, 6, '#e048ff', 'player'));
+
+        }
+        else
+        {
+            gameState.bullets.push(new Bullet(bx, by, PLAYER_BULLET_SPEED, 2, 6, '#fff', 'player'));
+        }
+        gameState.nextShootAllowed = time + shootCd;
     }
 
+    if (time >= gameState.nextBonusAt) {
+        const x = Math.random() * (gameState.canvas.width - 18);
+        gameState.bonuses.push(new Bonus(x, gameState.canvas.height * 2 / 3, time + BONUS_TIME_TO_LIVE));
+        gameState.nextBonusAt = time + BONUS_SPAWN_EVERY;
+    }
+    gameState.bonuses.forEach(b => b.update(time));
+
     /* ───── 2. ДВИЖЕНИЕ ПРИШЕЛЬЦЕВ ───── */
+    const speedMul = (time < gameState.alienSpeedBuffUntil) ? 2 : 1;
     gameState.aliens.forEach(al => {
         al._lowerMate = gameState.aliens.some(o =>
             o !== al && Math.abs(o.x - al.x) < al.w && o.y > al.y);
-        al.move(gameState.canvas);
+        al.move(gameState.canvas, speedMul);
     });
 
     /* ─── 2‑бис. СТОЛКНОВЕНИЯ АЛИЕН↔АЛИЕН ─── */
@@ -104,7 +138,8 @@ export function update(time, stopGame) {
         for (let j = i + 1; j < gameState.aliens.length; j++) {
             const b = gameState.aliens[j];
             if (!a.isDead && !b.isDead && isColliding(a, b)) {
-                a.dir *= -1;  b.dir *= -1;
+                a.dir *= -1;
+                b.dir *= -1;
             }
         }
     }
@@ -118,27 +153,28 @@ export function update(time, stopGame) {
     /* ───── 5. СТОЛКНОВЕНИЯ ПУЛЬ ───── */
     gameState.bullets.forEach(bullet => {
 
-        /* игрок → пришельцы */
+        /* игрок -> пришельцы */
         if (bullet.owner === 'player') {
             gameState.aliens.forEach(alien => {
                 if (!alien.isDead && bulletHits(bullet, alien)) {
-                    alien.isDead = true;
+                    alien.dead(time, gameState);
                     bullet.isDead = true;
                 }
             });
         }
 
-        /* 🔥  ПУЛЯ ПРИШЕЛЬЦА → ПРИШЕЛЕЦ (friendly‑fire)  🔥 */
-        if (bullet.owner === 'alien') {
+        /*  ПУЛЯ ПРИШЕЛЬЦА -> ПРИШЕЛЕЦ  */
+        if (bullet.owner === 'alien') { //желтые пули будут без ff
             gameState.aliens.forEach(alien => {
                 if (!alien.isDead && bulletHits(bullet, alien)) {
-                    alien.isDead = true;     // пришелец погибает
+                    alien.dead(time, gameState);    // пришелец погибает
                     bullet.isDead = true;    // пуля тоже исчезает
+
                 }
             });
         }
 
-        /* любая пуля → бункеры */
+        /* любая пуля -> бункеры */
         gameState.bunkers.forEach(bunker => {
             if (!bunker.isDead && bulletHits(bullet, bunker)) {
                 bunker.hit(bullet.owner);
@@ -147,24 +183,55 @@ export function update(time, stopGame) {
         });
 
 
-        /* пришелец → игрок */
-        if (bullet.owner === 'alien' &&
-            bulletHits(bullet, gameState.cannon)) {
-            stopGame?.();               // ваша логика Game Over
+        gameState.bonuses.forEach(bonus => {
+            if (!bonus.isDead && bulletHits(bullet, bonus)) {
+                bonus.isDead = true;
+                if (bullet.owner === 'player')      // игрок попал
+                    gameState.playerBuffUntil = time + BONUS_PLAYER_MS;
+                else                                // пришелец попал
+                    gameState.alienBuffUntil = gameState.alienSpeedBuffUntil =
+                        time + BONUS_ALIENS_MS;
+                bullet.isDead = true;
+            }
+        });
+
+        /* пришелец -> игрок */
+        if (bullet.owner !== 'player' && bulletHits(bullet, gameState.cannon)) {
+            gameState.lives--;
             bullet.isDead = true;
+            gameState.bullets = [];
+            gameState.bonuses = [];
+            gameState.currentScore -= DEATH_PRICE;
+            if (gameState.lives <= 0) stopGame?.(gameState.currentScore);
         }
     });
 
+
     /* ───── 6. УДАЛЯЕМ МЁРТВЫХ ───── */
     gameState.bullets = gameState.bullets.filter(b => !b.isDead);
-    gameState.aliens  = gameState.aliens .filter(a => !a.isDead);
+    gameState.aliens = gameState.aliens.filter(a => !a.isDead);
     gameState.bunkers = gameState.bunkers.filter(b => !b.isDead);
+    gameState.bonuses = gameState.bonuses.filter(b => !b.isDead);
+
+    if(gameState.aliens.length  == 0)
+    {
+        // window.open("https://www.youtube.com/watch?v=ecI1XvAGd5c", '_blank').focus();
+        alert(`Ура победа, вы заработали ${gameState.currentScore}`)
+    }
 }
 
 export function draw(canvas, time) {
     const ctx = canvas.getContext('2d');
     ctx.clearRect(0, 0, canvas.width, canvas.height);
+    for (let i = 0; i < gameState.lives; i++) {
+        const dx = 4 + i * 16;
+        const dy = gameState.canvas.height - 20;
+        ctx.drawImage(sprites.cannon.img, sprites.cannon.x, sprites.cannon.y,
+            sprites.cannon.w, sprites.cannon.h,
+            dx, dy, 14, 10);          // мини-вариант спрайта
+    }
 
+    gameState.bonuses.forEach(b => b.draw(ctx, time));
     gameState.bunkers.forEach(a => a.draw(ctx, time));
     gameState.aliens.forEach(a => a.draw(ctx, time));
     gameState.cannon.draw(ctx);
@@ -182,9 +249,9 @@ function isColliding(a, b) {
 
 function sweptCollide(bullet, target) {
     // 1) объединим позиции пули за два кадра
-    const left   = Math.min(bullet.x, bullet.prevX);
-    const right  = Math.max(bullet.x + bullet.w, bullet.prevX + bullet.w);
-    const top    = Math.min(bullet.y, bullet.prevY);
+    const left = Math.min(bullet.x, bullet.prevX);
+    const right = Math.max(bullet.x + bullet.w, bullet.prevX + bullet.w);
+    const top = Math.min(bullet.y, bullet.prevY);
     const bottom = Math.max(bullet.y + bullet.h, bullet.prevY + bullet.h);
 
     // 2) прямоугольники пересекаются?
