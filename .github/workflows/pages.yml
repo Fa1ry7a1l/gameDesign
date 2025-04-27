@@ -1,0 +1,40 @@
+name: Deploy game to GitHub Pages
+on:
+  push:
+    branches: [ main ]           # деплой при каждом пуше в main
+
+permissions:
+  contents: read                 # checkout
+  pages: write                   # залить артефакт Pages
+  id-token: write                # подписать деплой
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      # 1. Клонируем репо
+      - uses: actions/checkout@v4
+
+      # 2. Кэшируем node_modules (ускоряет последующие сборки)
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: lab2/package-lock.json
+
+      # 3. Ставим зависимости и собираем — именно в каталоге lab2
+      - name: Install deps
+        working-directory: ./lab2
+        run: npm ci
+
+      - name: Build
+        working-directory: ./lab2
+        run: npm run build        # или любой ваш скрипт
+
+      # 4. Упаковываем папку dist в артефакт Pages
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: ./lab2/dist       # ⚠️ поменяйте, если сборщик создаёт другую папку
+
+      # 5. Публикуем на GitHub Pages
+      - uses: actions/deploy-pages@v4
