@@ -1,40 +1,33 @@
-name: Deploy game to GitHub Pages
+name: Deploy static game to GitHub Pages
 on:
   push:
-    branches: [ main ]           # деплой при каждом пуше в main
-
+    branches: [ main ]            # каждый пуш в main триггерит деплой
 permissions:
-  contents: read                 # checkout
-  pages: write                   # залить артефакт Pages
-  id-token: write                # подписать деплой
+  contents: read                 # нужно actions/checkout
+  pages: write                   # разрешение писать в gh-pages
+  id-token: write                # для OIDC-логина в Pages
 
 jobs:
-  build-and-deploy:
+  deploy:
     runs-on: ubuntu-latest
+
     steps:
-      # 1. Клонируем репо
+      # 1. Клонируем репозиторий
       - uses: actions/checkout@v4
 
-      # 2. Кэшируем node_modules (ускоряет последующие сборки)
-      - uses: actions/setup-node@v4
+      # 2. Загружаем готовые файлы как артефакт Pages
+      #    Флаг working-directory, чтобы путь был относительный к lab2/
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
         with:
-          node-version: 20
-          cache: npm
-          cache-dependency-path: lab2/package-lock.json
+          path: docs                          # lab2/docs, см. defaults ниже
+        working-directory: lab2
 
-      # 3. Ставим зависимости и собираем — именно в каталоге lab2
-      - name: Install deps
-        working-directory: ./lab2
-        run: npm ci
+      # 3. Публикуем артефакт на GitHub Pages
+      - name: Deploy to GitHub Pages
+        id: deploy
+        uses: actions/deploy-pages@v4
 
-      - name: Build
-        working-directory: ./lab2
-        run: npm run build        # или любой ваш скрипт
-
-      # 4. Упаковываем папку dist в артефакт Pages
-      - uses: actions/upload-pages-artifact@v3
-        with:
-          path: ./lab2/dist       # ⚠️ поменяйте, если сборщик создаёт другую папку
-
-      # 5. Публикуем на GitHub Pages
-      - uses: actions/deploy-pages@v4
+    # Показываем итоговый URL в логах job’а
+    outputs:
+      page_url: ${{ steps.deploy.outputs.page_url }}
