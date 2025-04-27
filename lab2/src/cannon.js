@@ -2,6 +2,8 @@ export default class Cannon {
   constructor(x, y, sprite) {
     this.x = x;
   	this.y = y;
+    this.w = sprite.w;
+    this.h = sprite.h;
     this._sprite = sprite;
   }
 
