@@ -68,7 +68,7 @@ export default class CharacterFactory {
         slime.speed = 40;
         if(params.slimeType == 2)
         {
-            slime.speed = 70s
+            slime.speed = 70
         }
         return slime;
     }
