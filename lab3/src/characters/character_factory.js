@@ -1,9 +1,9 @@
 import {StateTableRow, StateTable} from '../ai/behaviour/state';
-import Slime from "./slime";
 import Player from "./player";
 import cyberpunkConfigJson from "../../assets/animations/cyberpunk.json";
 import slimeConfigJson from "../../assets/animations/slime.json";
 import AnimationLoader from "../utils/animation-loader";
+import {Steering, Slime, SteeringInterceptor, HideInterceptor, PathSteering} from "./slime";
 
 
 export default class CharacterFactory {
@@ -62,10 +62,14 @@ export default class CharacterFactory {
 
     buildSlime(x, y, params) {
         const slimeType = params.slimeType || 0;
-        let slime = new Slime(this.scene, x, y, this.slimeSpriteSheet, 9 * slimeType);
+        let slime = new Slime(this.scene, x, y, this.slimeSpriteSheet, 9 * slimeType,this.steering(slimeType));
         slime.animations = this.animationLibrary.get(this.slimeSpriteSheet).get(this.slimeNumberToName(slimeType));
         slime.setCollideWorldBounds(true);
         slime.speed = 40;
+        if(params.slimeType == 2)
+        {
+            slime.speed = 70s
+        }
         return slime;
     }
     slimeNumberToName(n)
@@ -76,6 +80,16 @@ export default class CharacterFactory {
             case 2: return 'Orange';
             case 3: return 'Pink';
             case 4: return 'Violet';
+        }
+    }
+
+    steering(n)
+    {
+        switch (n) {
+            case 4: return new SteeringInterceptor(); // фиолетовые будут бегать за игроком
+            case 2: return new HideInterceptor();  // оранжевые будут прятаться за зелеными от игрока
+            case 1: return new PathSteering();  // зеленые будут бегать кругом
+            default: return new Steering();
         }
     }
 }
